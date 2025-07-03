@@ -1,2 +1,18 @@
 # WinColorLogger
-WinColorLogger 是一个极简 C++ 控制台日志工具，支持彩色 Info/Error 输出，专为 Windows 平台设计。无依赖、易集成，适合调试工具输出等轻量场景。
+
+一个轻量级、零依赖的 Windows 平台 C++ 彩色控制台日志库，适用于快速调试、控制台工具输出等场景。
+
+![platform](https://img.shields.io/badge/platform-Windows-blue)
+![language](https://img.shields.io/badge/language-C++17-lightgrey)
+![license](https://img.shields.io/badge/license-MIT-green)
+
+---
+
+## ✨ 特性
+
+- ✅ 支持彩色输出：`Info`（绿色）、`Error`（红色）
+- ✅ 零依赖，仅使用标准 C++ 与 WinAPI
+- ✅ 单头文件，轻松集成
+- ✅ 适用于控制台应用、调试工具、驱动通信程序等
+
+---
