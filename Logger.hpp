@@ -1,8 +1,10 @@
-#ifndef LOGGER_HPP
+﻿#ifndef LOGGER_HPP
 #define LOGGER_HPP
 
 #include <cstdio>
 #include <cstdarg>
+#include <mutex>
+#include <windows.h>
 
 namespace Logger {
 
@@ -11,62 +13,67 @@ namespace Logger {
         Error
     };
 
+    //使用互斥锁防止多线程调用出现异常
+    inline std::mutex log_mutex;
+
    /**
-   * HANDLE GetStdHandle(DWORD nStdHandle) ��ȡ��׼���롢���������豸�ľ������Ļ�����������
+   * HANDLE GetStdHandle(DWORD nStdHandle) 获取标准输入、输出或错误设备的句柄（屏幕缓冲区句柄）
    * 
-   * @param nStdHandle ��׼�豸���ͣ�����������ֵ��
-   *   - STD_INPUT_HANDLE   (DWORD)-10  // ��׼���루���̣��ľ��
-   *   - STD_OUTPUT_HANDLE  (DWORD)-11  // ��׼���������̨��Ļ���ľ��
-   *   - STD_ERROR_HANDLE   (DWORD)-12  // ��׼���󣨴�����Ϣ������ľ��
+   *   nStdHandle 标准设备类型，可以是以下值：
+   *   - STD_INPUT_HANDLE   (DWORD)-10  // 标准输入（键盘）的句柄
+   *   - STD_OUTPUT_HANDLE  (DWORD)-11  // 标准输出（控制台屏幕）的句柄
+   *   - STD_ERROR_HANDLE   (DWORD)-12  // 标准错误（错误信息输出）的句柄
    *
-   * @return �ɹ������豸�����HANDLE����ʧ�ܷ��� INVALID_HANDLE_VALUE
-   * Windows ����̨��ɫ����˵�� (���� SetConsoleTextAttribute)
+   * 成功返回设备句柄（HANDLE），失败返回 INVALID_HANDLE_VALUE
+   * 
+   * Windows 控制台颜色 (用于 SetConsoleTextAttribute)
    *
-   * ��ɫ���� 4-bit ���룬��ʽΪ 0xXY��
-   *   - X (��4λ): ����ɫ
-   *   - Y (��4λ): ǰ��ɫ(������ɫ)
+   * 颜色采用 4-bit 编码，格式为 0xXY：
+   *   - X (高4位): 背景色
+   *   - Y (低4位): 前景色(文字颜色)
    *
-   * ������ɫֵ (�����ʹ��):
-   *   0x0: ��ɫ       0x1: ����ɫ
-   *   0x2: ����ɫ     0x3: ����ɫ
-   *   0x4: ���ɫ     0x5: ����ɫ
-   *   0x6: ���ɫ     0x7: ��ɫ(Ĭ��)
-   *   0x8: ���ɫ     0x9: ��ɫ
-   *   0xA: ��ɫ       0xB: ��ɫ
-   *   0xC: ��ɫ       0xD: ��ɫ
-   *   0xE: ��ɫ       0xF: ��ɫ
+   * 基础颜色值 (可组合使用):
+   *   0x0: 黑色       0x1: 深蓝色
+   *   0x2: 深绿色     0x3: 深青色
+   *   0x4: 深红色     0x5: 深紫色
+   *   0x6: 深黄色     0x7: 灰色(默认)
+   *   0x8: 深灰色     0x9: 蓝色
+   *   0xA: 绿色       0xB: 青色
+   *   0xC: 红色       0xD: 紫色
+   *   0xE: 黄色       0xF: 白色
    *
-   * �������ʾ����
-   *   0x07: ���ֺڵ�(Ĭ��)    0x70: ���ֻҵ�(��ɫ)
-   *   0x0F: ���ֺڵ�         0xF0: ���ְ׵�
-   *   0x04: ���ֺڵ�         0x40: ���ֺ��
-   *   0x0A: ���ֺڵ�         0xA0: �����̵�
-   *   0x0E: ���ֺڵ�         0xE0: ���ֻƵ�
+   * 常用组合示例：
+   *   0x07: 灰字黑底(默认)    0x70: 黑字灰底(反色)
+   *   0x0F: 白字黑底         0xF0: 黑字白底
+   *   0x04: 红字黑底         0x40: 黑字红底
+   *   0x0A: 绿字黑底         0xA0: 黑字绿底
+   *   0x0E: 黄字黑底         0xE0: 黑字黄底
    *
-   * ������ϣ�
-   *   - ���� FOREGROUND_INTENSITY(0x08) ʹǰ��ɫ����
-   *   - ���� BACKGROUND_INTENSITY(0x80) ʹ����ɫ����
-   *   ���磺0x0C �����ɫ��0x0F ������ɫ
+   * 特殊组合：
+   *   - 添加 FOREGROUND_INTENSITY(0x08) 使前景色变亮
+   *   - 添加 BACKGROUND_INTENSITY(0x80) 使背景色变亮
+   *   例如：0x0C 是深红色，0x0F 是亮白色
 
    */
 
 
     inline void Print(LogLevel level, const char* fmt, va_list args) {
+        std::lock_guard<std::mutex> lock(log_mutex);//这里加锁防止线程冲突
         switch (level) {
         case LogLevel::Info:
-            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 0x7);//����ΪĬ�ϻ�ɫ
+            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 0x7);//设置为默认灰色
             printf("[");
-            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 0x2);//����Ϊ��ɫ
+            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 0x2);//设置为绿色
             printf("Info");
-            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 0x7);//����ΪĬ�ϻ�ɫ
+            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 0x7);//设置为默认灰色
             printf("] ");
             break;
         case LogLevel::Error:
-            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 0x7);//����ΪĬ�ϻ�ɫ
+            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 0x7);//设置为默认灰色
             printf("[");
-            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 0x4);//����Ϊ��ɫ
+            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 0x4);//设置为红色
             printf("Error");
-            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 0x7);//����ΪĬ�ϻ�ɫ
+            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 0x7);//设置为默认灰色
             printf("] ");
             break;
         default:
