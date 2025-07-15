@@ -10,6 +10,7 @@ namespace Logger {
 
     enum class LogLevel {
         Info,
+        Warn,
         Error
     };
 
@@ -59,21 +60,30 @@ namespace Logger {
 
     inline void Print(LogLevel level, const char* fmt, va_list args) {
         std::lock_guard<std::mutex> lock(log_mutex);//这里加锁防止线程冲突
+        HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
         switch (level) {
         case LogLevel::Info:
-            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 0x7);//设置为默认灰色
+            SetConsoleTextAttribute(hConsole, 0x7);//设置为默认灰色
             printf("[");
-            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 0x2);//设置为绿色
+            SetConsoleTextAttribute(hConsole, 0x2);//设置为绿色
             printf("Info");
-            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 0x7);//设置为默认灰色
+            SetConsoleTextAttribute(hConsole, 0x7);//设置为默认灰色
             printf("] ");
             break;
         case LogLevel::Error:
-            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 0x7);//设置为默认灰色
+            SetConsoleTextAttribute(hConsole, 0x7);//设置为默认灰色
             printf("[");
-            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 0x4);//设置为红色
+            SetConsoleTextAttribute(hConsole, 0x4);//设置为红色
             printf("Error");
-            SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 0x7);//设置为默认灰色
+            SetConsoleTextAttribute(hConsole, 0x7);//设置为默认灰色
+            printf("] ");
+            break;
+        case LogLevel::Warn:
+            SetConsoleTextAttribute(hConsole, 0x7);//设置为默认灰色
+            printf("[");
+            SetConsoleTextAttribute(hConsole, 0x6);//设置为黄色
+            printf("Warn");
+            SetConsoleTextAttribute(hConsole, 0x7);//设置为默认灰色
             printf("] ");
             break;
         default:
@@ -91,11 +101,27 @@ namespace Logger {
         va_end(args);
     }
 
-    inline void Error(const char* fmt, ...) {
+    inline void Warn(const char* fmt, ...) {
+        va_list args;
+        va_start(args, fmt);
+        Print(LogLevel::Warn, fmt, args);
+        va_end(args);
+    }
+
+    inline void Error(bool ifexit,int exitsleep,const char* fmt, ...) {
         va_list args;
         va_start(args, fmt);
         Print(LogLevel::Error, fmt, args);
         va_end(args);
+        if (ifexit)
+        {
+            if (exitsleep <= 0) exitsleep = 1;
+            char cmd[64];
+            sprintf_s(cmd, sizeof(cmd), "timeout /t %d", exitsleep);
+            system(cmd);
+
+            exit(1);
+        }
     }
 
 } // namespace Logger
